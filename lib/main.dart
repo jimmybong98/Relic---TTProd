@@ -9,8 +9,12 @@ import 'app.dart'; // lib/app.dart
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  // Carrega variáveis de ambiente do arquivo .env (se existir)
-  await dotenv.load();
+  // Carrega variáveis de ambiente do arquivo .env, ignorando se ausente
+  try {
+    await dotenv.load();
+  } catch (_) {
+    // Se não houver arquivo .env, seguimos com valores padrão
+  }
 
   // Inicializa Hive (desktop/mobile/web via hive_flutter)
   await Hive.initFlutter();
