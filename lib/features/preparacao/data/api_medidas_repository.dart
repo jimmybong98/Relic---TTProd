@@ -17,8 +17,15 @@ class ApiMedidasRepository implements MedidasRepository {
         baseUrl = overrideBaseUrl ??
             (dotenv.maybeGet('API_BASE_URL') ?? 'http://192.168.0.82:5005');
 
-  Uri _u(String path, [Map<String, String>? q]) =>
-      Uri.parse(baseUrl).replace(path: path, queryParameters: q);
+  // Constrói a URL final a partir do [baseUrl].
+  // Usa [Uri.resolve] para preservar qualquer subcaminho presente no
+  // `API_BASE_URL` (ex.: http://host:5005/api) e então aplica os
+  // parâmetros de consulta.
+  Uri _u(String path, [Map<String, String>? q]) {
+    final base = Uri.parse(baseUrl);
+    final resolved = base.resolve(path);
+    return resolved.replace(queryParameters: q);
+  }
 
   @override
   Future<List<MedidaItem>> getMedidas({
