@@ -89,7 +89,7 @@ class PreparacaoFiltro {
     required this.operacao,
   });
 
-  String get chaveCadastro => '${partnumber}*${operacao}';
+  String get chaveCadastro => '$partnumber*$operacao';
 }
 
 class ResultadoItem {
