@@ -15,7 +15,7 @@ class ApiMedidasRepository implements MedidasRepository {
     String? overrideBaseUrl,
   })  : _client = client ?? http.Client(),
         baseUrl = overrideBaseUrl ??
-            (dotenv.maybeGet('API_BASE_URL') ?? 'http://192.168.0.82:5005');
+            (dotenv.maybeGet('API_BASE_URL') ?? 'http://192.168.0.241:5005');
 
   // Constrói a URL final a partir do [baseUrl].
   // Usa [Uri.resolve] para preservar qualquer subcaminho presente no
