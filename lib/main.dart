@@ -13,7 +13,9 @@ Future<void> main() async {
   try {
     await dotenv.load();
   } catch (_) {
-    // Se não houver arquivo .env, seguimos com valores padrão
+    // Se não houver arquivo .env, inicializa com mapa vazio para evitar
+    // NotInitializedError ao acessar [dotenv].
+    dotenv.testLoad(fileInput: '');
   }
 
   // Inicializa Hive (desktop/mobile/web via hive_flutter)
