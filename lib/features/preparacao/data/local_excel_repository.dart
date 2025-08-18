@@ -59,4 +59,9 @@ class LocalExcelRepository implements MedidasRepository {
     if (v == null) return '';
     return v.toString().trim();
   }
+
+  @override
+  Future<void> enviarResultado(PreparacaoResultado resultado) async {
+    // Repositório Excel é somente leitura; resultados não são persistidos localmente.
+  }
 }
