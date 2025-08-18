@@ -18,9 +18,9 @@ class MeasurementTile extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(item.etiqueta.isEmpty ? '(sem etiqueta)' : item.etiqueta, style: styleLabel),
+            Text(item.titulo.isEmpty ? '(sem etiqueta)' : item.titulo, style: styleLabel),
             const SizedBox(height: 4),
-            Text(item.especificacao.isEmpty ? '(sem especificação)' : item.especificacao, style: styleSpec),
+            Text(item.faixaTexto.isEmpty ? '(sem especificação)' : item.faixaTexto, style: styleSpec),
             const SizedBox(height: 8),
             Wrap(
               spacing: 8,

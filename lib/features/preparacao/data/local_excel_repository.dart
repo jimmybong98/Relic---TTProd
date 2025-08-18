@@ -32,7 +32,12 @@ class LocalExcelRepository implements MedidasRepository {
           if (ambosVazios) break; // chegou ao fim
 
           if (etiqueta.isNotEmpty || especificacao.isNotEmpty) {
-            medidas.add(MedidaItem(etiqueta: etiqueta, especificacao: especificacao));
+            medidas.add(
+              MedidaItem(
+                titulo: etiqueta,
+                faixaTexto: especificacao,
+              ),
+            );
           }
           col += 2; // próximo par (I/J, K/L, ...)
         }
