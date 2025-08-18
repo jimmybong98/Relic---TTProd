@@ -1,13 +1,9 @@
 import 'dart:io';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
-import 'package:dio/dio.dart';
-import 'models.dart';
-import 'api_client.dart';
-import 'local_excel_repository.dart';
 
-abstract class MedidasRepository {
-  Future<List<MedidaItem>> buscar(String partNumber, String operacao);
-}
+import 'local_excel_repository.dart';
+import 'medidas_repository.dart';
+import 'api_medidas_repository.dart';
 
 class MedidasRepositoryFactory {
   static MedidasRepository create() {
@@ -18,6 +14,6 @@ class MedidasRepositoryFactory {
     }
     // Android (ou outros): usa API HTTP
     final baseUrl = dotenv.maybeGet('API_BASE_URL') ?? 'http://192.168.0.82:5005';
-    return ApiMedidasRepository(Dio(BaseOptions(baseUrl: baseUrl)));
+    return ApiMedidasRepository(overrideBaseUrl: baseUrl);
   }
 }
