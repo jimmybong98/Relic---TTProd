@@ -1,7 +1,7 @@
 import 'dart:io';
 import 'package:excel/excel.dart';
 import 'models.dart';
-import 'excel_repository.dart';
+import 'medidas_repository.dart';
 
 class LocalExcelRepository implements MedidasRepository {
   final String planilhaPath;
@@ -9,8 +9,11 @@ class LocalExcelRepository implements MedidasRepository {
   const LocalExcelRepository({required this.planilhaPath, required this.aba});
 
   @override
-  Future<List<MedidaItem>> buscar(String partNumber, String operacao) async {
-    final key = '${partNumber.trim()}*${operacao.trim()}';
+  Future<List<MedidaItem>> getMedidas({
+    required String partnumber,
+    required String operacao,
+  }) async {
+    final key = '${partnumber.trim()}*${operacao.trim()}';
     final bytes = await File(planilhaPath).readAsBytes();
     final excel = Excel.decodeBytes(bytes);
     final sheet = excel.tables[aba];

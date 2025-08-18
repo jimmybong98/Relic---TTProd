@@ -2,11 +2,15 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:hive_flutter/hive_flutter.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 
 import 'app.dart'; // lib/app.dart
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  // Carrega variáveis de ambiente do arquivo .env (se existir)
+  await dotenv.load();
 
   // Inicializa Hive (desktop/mobile/web via hive_flutter)
   await Hive.initFlutter();
