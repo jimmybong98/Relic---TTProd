@@ -1,5 +1,6 @@
 // lib/main.dart
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 
 import 'app.dart'; // lib/app.dart
@@ -17,5 +18,5 @@ Future<void> main() async {
   ]);
 
   // Sobe o app (MaterialApp está em lib/app.dart)
-  runApp(const App());
+  runApp(const ProviderScope(child: App()));
 }
