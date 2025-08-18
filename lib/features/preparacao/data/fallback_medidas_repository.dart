@@ -17,13 +17,21 @@ class FallbackMedidasRepository implements MedidasRepository {
     required String partnumber,
     required String operacao,
   }) async {
-    final localResult = await local.getMedidas(
-      partnumber: partnumber,
-      operacao: operacao,
-    );
+    final localResult = await local
+        .getMedidas(
+          partnumber: partnumber,
+          operacao: operacao,
+        )
+        .timeout(
+          const Duration(seconds: 5),
+          onTimeout: () => <MedidaItem>[],
+        )
+        .catchError((_) => <MedidaItem>[]);
+
     if (localResult.isNotEmpty) {
       return localResult;
     }
+
     return api.getMedidas(partnumber: partnumber, operacao: operacao);
   }
 
