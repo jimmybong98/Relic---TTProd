@@ -1,6 +1,7 @@
 import 'medidas_repository.dart';
 import 'api_medidas_repository.dart';
 import 'local_excel_repository.dart';
+import 'models.dart';
 
 /// Repository that tries to load measures from the local Excel first and
 /// falls back to the API when none are found. Results are always sent to the
