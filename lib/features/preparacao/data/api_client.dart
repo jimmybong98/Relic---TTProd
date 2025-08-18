@@ -13,6 +13,6 @@ class ApiMedidasRepository implements MedidasRepository {
       'op': operacao.trim(),
     });
     final list = (resp.data['medidas'] as List).cast<Map<String, dynamic>>();
-    return list.map(MedidaItem.fromJson).toList();
+    return list.map((e) => MedidaItem.fromMap(e)).toList();
   }
 }
