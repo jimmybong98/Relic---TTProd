@@ -74,6 +74,8 @@ class LocalExcelRepository implements MedidasRepository {
           status: statusFromString(map['status']?.toString()),
           medicao: map['medicao']?.toString(),
           observacao: map['observacao']?.toString(),
+          periodicidade: map['periodicidade']?.toString(),
+          instrumento: map['instrumento']?.toString(),
         );
       }).toList();
     }
