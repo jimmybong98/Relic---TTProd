@@ -58,9 +58,9 @@ class _SupervisaoPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const Scaffold(
-      appBar: AppBar(title: Text('Supervisão')),
-      body: Center(child: Text('Em desenvolvimento')),
+    return Scaffold(
+      appBar: AppBar(title: const Text('Supervisão')),
+      body: const Center(child: Text('Em desenvolvimento')),
     );
   }
 }
