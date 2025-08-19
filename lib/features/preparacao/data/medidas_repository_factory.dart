@@ -18,12 +18,18 @@ class MedidasRepositoryFactory {
   static MedidasRepository create({
     required bool useApi,
     String? baseUrlOverride,
+    String? medidasPath,
+    String? resultadoPath,
     String? assetPath,
     String? planilhaPath,
     String? aba,
   }) {
     if (useApi) {
-      return ApiMedidasRepository(overrideBaseUrl: baseUrlOverride);
+      return ApiMedidasRepository(
+        overrideBaseUrl: baseUrlOverride,
+        medidasPath: medidasPath ?? '/medidas',
+        resultadoPath: resultadoPath ?? '/resultado',
+      );
     }
 
     if (planilhaPath != null) {
