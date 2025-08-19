@@ -64,7 +64,7 @@ class MedidaItem {
     'titulo': titulo,
     'faixa': faixaTexto,
     'min': minimo,
-    'max': maximo,
+        'max': maximo,
     'unidade': unidade,
     'status': statusToString(status),
     'observacao': observacao,
@@ -115,26 +115,3 @@ class ResultadoItem {
 
 class PreparacaoResultado {
   final String re;
-  final String partnumber;
-  final String operacao;
-  final DateTime timestamp;
-  final List<ResultadoItem> itens;
-
-  PreparacaoResultado({
-    required this.re,
-    required this.partnumber,
-    required this.operacao,
-    required this.itens,
-    DateTime? timestamp,
-  }) : timestamp = timestamp ?? DateTime.now();
-
-  Map<String, dynamic> toMap() => {
-    're': re,
-    'partnumber': partnumber,
-    'operacao': operacao,
-    'timestamp': timestamp.toIso8601String(),
-    'itens': itens.map((e) => e.toMap()).toList(),
-  };
-
-  String toJson() => jsonEncode(toMap());
-}
