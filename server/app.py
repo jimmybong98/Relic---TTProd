@@ -3,12 +3,10 @@ from flask import Flask, request, jsonify
 from openpyxl import load_workbook
 from pathlib import Path
 import re
-
-# Se precisar de CORS, descomenta as 2 linhas abaixo:
-# from flask_cors import CORS
+from flask_cors import CORS
 
 app = Flask(__name__)
-# CORS(app)
+CORS(app)
 
 # ========================= CONFIG =========================
 PLANILHA_PREPARADOR_PATH = (
@@ -182,6 +180,23 @@ def get_medidas_operador():
         return jsonify(_extrair_medidas_quartetos(row_vals))
     except Exception as e:
         return jsonify({"error": f"Falha ao ler planilha do OPERADOR: {e}"}), 500
+
+
+@app.post("/resultado")
+def post_resultado_preparador():
+    """Recebe o resultado de medições do preparador.
+
+    Neste protótipo os dados são apenas retornados como confirmação.
+    """
+    data = request.get_json(silent=True) or {}
+    return jsonify({"status": "ok", "received": data})
+
+
+@app.post("/operador/resultado")
+def post_resultado_operador():
+    """Recebe o resultado de medições do operador."""
+    data = request.get_json(silent=True) or {}
+    return jsonify({"status": "ok", "received": data})
 
 # ========================= MAIN ==========================
 if __name__ == "__main__":
