@@ -31,20 +31,41 @@ class MedidasController extends StateNotifier<AsyncValue<List<MedidaItem>>> {
     }
   }
 
-  void setStatus(int index, StatusMedida status) {
+  void setMedicao(int index, String medicao) {
     final current = [...(state.value ?? const <MedidaItem>[])];
     if (index < 0 || index >= current.length) return;
+
+    final item = current[index];
+    double? valor;
+    try {
+      valor = double.parse(medicao.replaceAll(',', '.'));
+    } catch (_) {
+      valor = null;
+    }
+
+    StatusMedida status = StatusMedida.pendente;
+    if (valor != null) {
+      final minimo = item.minimo;
+      final maximo = item.maximo;
+      if ((minimo != null && valor < minimo) ||
+          (maximo != null && valor > maximo)) {
+        status = StatusMedida.reprovada;
+      } else {
+        status = StatusMedida.ok;
+      }
+    }
+
     current[index] = MedidaItem(
-      titulo: current[index].titulo,
-      faixaTexto: current[index].faixaTexto,
-      minimo: current[index].minimo,
-      maximo: current[index].maximo,
-      unidade: current[index].unidade,
+      titulo: item.titulo,
+      faixaTexto: item.faixaTexto,
+      minimo: item.minimo,
+      maximo: item.maximo,
+      unidade: item.unidade,
       status: status,
-      medicao: current[index].medicao,
-      observacao: current[index].observacao,
-      periodicidade: current[index].periodicidade,
-      instrumento: current[index].instrumento,
+      medicao: medicao,
+      observacao: item.observacao,
+      periodicidade: item.periodicidade,
+      instrumento: item.instrumento,
     );
     state = AsyncValue.data(current);
   }
@@ -71,9 +92,37 @@ class _PreparacaoPageState extends ConsumerState<PreparacaoPage> {
     super.dispose();
   }
 
+  Future<void> _liberarMaquina() async {
+    final medidas = ref.read(medidasControllerProvider).value ?? [];
+    final resultado = PreparacaoResultado(
+      re: _reCtrl.text.trim(),
+      partnumber: _partCtrl.text.trim(),
+      operacao: _opCtrl.text.trim(),
+      medidas: medidas,
+    );
+    try {
+      final repo = ref.read(medidasRepositoryProvider);
+      await repo.enviarResultado(resultado);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Máquina liberada com sucesso')),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Erro ao liberar: $e')),
+        );
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final medidasAsync = ref.watch(medidasControllerProvider);
+    final medidas = medidasAsync.value ?? [];
+    final todasOk =
+        medidas.isNotEmpty && medidas.every((m) => m.status == StatusMedida.ok);
 
     return Scaffold(
       appBar: AppBar(
@@ -175,9 +224,9 @@ class _PreparacaoPageState extends ConsumerState<PreparacaoPage> {
                         final item = list[index];
                         return _MeasurementTile(
                           item: item,
-                          onSelect: (status) => ref
+                          onChanged: (valor) => ref
                               .read(medidasControllerProvider.notifier)
-                              .setStatus(index, status),
+                              .setMedicao(index, valor),
                         );
                       },
                     );
@@ -186,6 +235,15 @@ class _PreparacaoPageState extends ConsumerState<PreparacaoPage> {
                   error: (e, _) => Center(
                     child: Text('Erro ao carregar:\n${e.toString()}'),
                   ),
+                ),
+              ),
+              const SizedBox(height: 16),
+              SizedBox(
+                width: double.infinity,
+                child: FilledButton.icon(
+                  onPressed: todasOk ? _liberarMaquina : null,
+                  icon: const Icon(Icons.check_circle_outline),
+                  label: const Text('Liberar máquina'),
                 ),
               ),
             ],
@@ -199,11 +257,11 @@ class _PreparacaoPageState extends ConsumerState<PreparacaoPage> {
 /// Widget interno para exibir cada medida + seleção de status
 class _MeasurementTile extends StatelessWidget {
   final MedidaItem item;
-  final void Function(StatusMedida) onSelect;
+  final void Function(String) onChanged;
 
   const _MeasurementTile({
     required this.item,
-    required this.onSelect,
+    required this.onChanged,
   });
 
   @override
@@ -236,25 +294,20 @@ class _MeasurementTile extends StatelessWidget {
             const SizedBox(height: 4),
             Text(subtitulo.isEmpty ? '(sem faixa)' : subtitulo, style: styleSpec),
             const SizedBox(height: 8),
-            Wrap(
-              spacing: 8,
-              children: [
-                ChoiceChip(
-                  label: const Text('OK'),
-                  selected: item.status == StatusMedida.ok,
-                  onSelected: (_) => onSelect(StatusMedida.ok),
-                ),
-                ChoiceChip(
-                  label: const Text('Alerta'),
-                  selected: item.status == StatusMedida.alerta,
-                  onSelected: (_) => onSelect(StatusMedida.alerta),
-                ),
-                ChoiceChip(
-                  label: const Text('Reprovada'),
-                  selected: item.status == StatusMedida.reprovada,
-                  onSelected: (_) => onSelect(StatusMedida.reprovada),
-                ),
-              ],
+            TextFormField(
+              initialValue: item.medicao ?? '',
+              keyboardType:
+                  const TextInputType.numberWithOptions(decimal: true),
+              decoration: InputDecoration(
+                labelText: 'Medição',
+                filled: true,
+                fillColor: item.status == StatusMedida.ok
+                    ? Colors.green.shade100
+                    : item.status == StatusMedida.reprovada
+                        ? Theme.of(context).colorScheme.errorContainer
+                        : null,
+              ),
+              onChanged: onChanged,
             ),
           ],
         ),

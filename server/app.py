@@ -29,16 +29,29 @@ COLS_CHAVE_SEPARADAS = None  # não usamos aqui
 def _norm(text):
     return (str(text or "")).strip()
 
+
 def _only_digits(text):
     s = re.sub(r"\D+", "", str(text or ""))
     return str(int(s)) if s else ""
 
+
 def _keys_match(cell_value: str, part: str, op: str) -> bool:
+    """Confere se a célula bate com part*op, permitindo letras no final do op."""
     s = _norm(cell_value)
     if "*" not in s:
         return False
     left, right = s.split("*", 1)
-    return _only_digits(left) == _only_digits(part) and _only_digits(right) == _only_digits(op)
+
+    # Normaliza número da peça
+    if _only_digits(left) != _only_digits(part):
+        return False
+
+    # Operação: só compara os dígitos, ignora letras de sufixo
+    op_digits = _only_digits(op)
+    right_digits = _only_digits(right)
+
+    return op_digits == right_digits
+
 
 def _parse_range(texto: str):
     if not texto:
@@ -46,7 +59,8 @@ def _parse_range(texto: str):
     s = str(texto)
     m = re.search(
         r"(-?\d+[.]?\d*)\s*(?:-|–|a|até)\s*(-?\d+[.]?\d*)\s*([^\d\s]+.*)?$",
-        s, flags=re.IGNORECASE
+        s,
+        flags=re.IGNORECASE,
     )
     if not m:
         m1 = re.search(r"(-?\d+[.,]?\d*)\s*([^\d\s]+.*)?$", s)
@@ -62,18 +76,20 @@ def _parse_range(texto: str):
         v1, v2 = v2, v1
     return (v1, v2, uni)
 
+
 def _to_float(s):
     try:
         return float(str(s).replace(",", ".").strip())
     except Exception:
         return None
 
+
 def _row_values(ws, row_idx):
     return [c.value for c in ws[row_idx]]
 
+
 def _encontrar_linha(ws, part: str, op: str, col_chave: int):
-    part_d = _only_digits(part)
-    op_d = _only_digits(op)
+    """Retorna a primeira linha que bater com part*op (usado no PREPARADOR)."""
     for r in range(1, ws.max_row + 1):
         vals = _row_values(ws, r)
         cel = vals[col_chave] if col_chave < len(vals) else ""
@@ -81,8 +97,24 @@ def _encontrar_linha(ws, part: str, op: str, col_chave: int):
             return vals
     return None
 
+
+def _encontrar_linhas(ws, part: str, op: str, col_chave: int):
+    """Retorna TODAS as linhas que batem com part*op (usado no OPERADOR)."""
+    resultados = []
+    for row in ws.iter_rows(values_only=True):
+        cel = row[col_chave] if col_chave < len(row) else ""
+        if _keys_match(cel, part, op):
+            resultados.append(list(row))
+    return resultados
+
+
 def _cell_text(row_vals, col_idx):
-    return (str(row_vals[col_idx]) if col_idx < len(row_vals) and row_vals[col_idx] is not None else "").strip()
+    return (
+        str(row_vals[col_idx])
+        if col_idx < len(row_vals) and row_vals[col_idx] is not None
+        else ""
+    ).strip()
+
 
 def _extrair_medidas_pares(row_vals):
     medidas = []
@@ -93,15 +125,18 @@ def _extrair_medidas_pares(row_vals):
         if not (etiqueta or faixa):
             break
         mn, mx, uni = _parse_range(faixa)
-        medidas.append({
-            "titulo": etiqueta or "",
-            "faixaTexto": faixa or "",
-            "min": mn,
-            "max": mx,
-            "unidade": uni,
-        })
+        medidas.append(
+            {
+                "titulo": etiqueta or "",
+                "faixaTexto": faixa or "",
+                "min": mn,
+                "max": mx,
+                "unidade": uni,
+            }
+        )
         col += 2
     return medidas
+
 
 def _extrair_medidas_quartetos(row_vals):
     medidas = []
@@ -114,17 +149,20 @@ def _extrair_medidas_quartetos(row_vals):
         if not (tipo or faixa or periodic or instrumento):
             break
         mn, mx, uni = _parse_range(faixa)
-        medidas.append({
-            "titulo": tipo or "",
-            "faixaTexto": faixa or "",
-            "min": mn,
-            "max": mx,
-            "unidade": uni,
-            "periodicidade": periodic or "",
-            "instrumento": instrumento or "",
-        })
+        medidas.append(
+            {
+                "titulo": tipo or "",
+                "faixaTexto": faixa or "",
+                "min": mn,
+                "max": mx,
+                "unidade": uni,
+                "periodicidade": periodic or "",
+                "instrumento": instrumento or "",
+            }
+        )
         col += 4
     return medidas
+
 
 def _buscar_medidas(path: str, aba: str, part: str, op: str, extrator, col_chave: int):
     wb = None
@@ -144,13 +182,42 @@ def _buscar_medidas(path: str, aba: str, part: str, op: str, extrator, col_chave
         except Exception:
             pass
 
+
+def _buscar_multiplas_medidas(
+        path: str, aba: str, part: str, op: str, extrator, col_chave: int
+):
+    """Busca múltiplas linhas e retorna lista de conjuntos de medidas."""
+    wb = None
+    try:
+        wb = load_workbook(path, data_only=True, read_only=True)
+        if aba not in wb.sheetnames:
+            raise RuntimeError(f"Aba '{aba}' não encontrada")
+        ws = wb[aba]
+        linhas = _encontrar_linhas(ws, part, op, col_chave)
+        if not linhas:
+            return []
+        medidas = []
+        for row_vals in linhas:
+            medidas.extend(extrator(row_vals))
+        return medidas
+    finally:
+        try:
+            if wb:
+                wb.close()
+        except Exception:
+            pass
+
+
 # ======== ROUTES ========
 @app.route("/preparador/medidas")
 def medidas_preparador():
     part = _norm(request.args.get("partnumber"))
     op = _norm(request.args.get("operacao"))
     if not part or not op:
-        return jsonify({"error": "Parâmetros 'partnumber' e 'operacao' são obrigatórios"}), 400
+        return (
+            jsonify({"error": "Parâmetros 'partnumber' e 'operacao' são obrigatórios"}),
+            400,
+        )
     print(f"[DEBUG] /preparador/medidas chamado: part={part}, op={op}", flush=True)
     try:
         data = _buscar_medidas(
@@ -159,35 +226,57 @@ def medidas_preparador():
             part,
             op,
             _extrair_medidas_pares,
-            COL_CHAVE_COMBINADA_PREPARADOR
+            COL_CHAVE_COMBINADA_PREPARADOR,
         )
         if not data:
-            return jsonify({"error": "Nenhuma medida encontrada para os parâmetros informados"}), 404
+            return (
+                jsonify(
+                    {"error": "Nenhuma medida encontrada para os parâmetros informados"}
+                ),
+                404,
+            )
         return jsonify(data)
     except Exception as e:
         return jsonify({"error": f"Falha ao ler planilha do PREPARADOR: {e}"}), 500
+
+
+@app.route("/preparador/resultado", methods=["POST"])
+def resultado_preparador():
+    data = request.get_json(silent=True) or {}
+    print(f"[DEBUG] /preparador/resultado recebido: {data}", flush=True)
+    return jsonify({"status": "ok"})
+
 
 @app.route("/operador/medidas")
 def medidas_operador():
     part = _norm(request.args.get("partnumber"))
     op = _norm(request.args.get("operacao"))
     if not part or not op:
-        return jsonify({"error": "Parâmetros 'partnumber' e 'operacao' são obrigatórios"}), 400
+        return (
+            jsonify({"error": "Parâmetros 'partnumber' e 'operacao' são obrigatórios"}),
+            400,
+        )
     print(f"[DEBUG] /operador/medidas chamado: part={part}, op={op}", flush=True)
     try:
-        data = _buscar_medidas(
+        data = _buscar_multiplas_medidas(
             PLANILHA_OPERADOR_PATH,
             ABA_OPERADOR,
             part,
             op,
             _extrair_medidas_quartetos,
-            COL_CHAVE_COMBINADA_OPERADOR
+            COL_CHAVE_COMBINADA_OPERADOR,
         )
         if not data:
-            return jsonify({"error": "Nenhuma medida encontrada para os parâmetros informados"}), 404
+            return (
+                jsonify(
+                    {"error": "Nenhuma medida encontrada para os parâmetros informados"}
+                ),
+                404,
+            )
         return jsonify(data)
     except Exception as e:
         return jsonify({"error": f"Falha ao ler planilha do OPERADOR: {e}"}), 500
+
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5005, debug=True, threaded=True)
