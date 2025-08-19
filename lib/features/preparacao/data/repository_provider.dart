@@ -4,5 +4,9 @@ import 'medidas_repository.dart';
 import 'medidas_repository_factory.dart';
 
 final medidasRepositoryProvider = Provider<MedidasRepository>((ref) {
-  return MedidasRepositoryFactory.create(useApi: true);
+  return MedidasRepositoryFactory.create(
+    useApi: true,
+    medidasPath: '/preparador/medidas',
+    resultadoPath: '/preparador/resultado',
+  );
 });
