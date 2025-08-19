@@ -8,11 +8,18 @@ import re
 app = Flask(__name__)
 
 # ========================= CONFIG =========================
-PLANILHA_PATH = r"\\192.168.0.82\00. SGI - Sistema Integrado\12. Qualidade\09. Formulários\For - 007 - Registro de amostragem e For - 008 - Liberação de Maquina 4.xlsx"
-ABA = "CADASTRO"
+PLANILHA_PREPARADOR_PATH = (
+    r"\\\\192.168.0.82\\00. SGI - Sistema Integrado\\12. Qualidade\\09. Formulários\\For - 007 - Registro de amostragem e For - 008 - Liberação de Maquina 4.xlsx"
+)
+PLANILHA_OPERADOR_PATH = (
+    r"\\\\192.168.0.82\\00. SGI - Sistema Integrado\\12. Qualidade\\09. Formulários\\For - 09 a 14 - Verificação durante o Processo.xlsx"
+)
+ABA_PREPARADOR = "CADASTRO"
+ABA_OPERADOR = "CADASTRO"
 
 # Índices 0-based
-COL_CHAVE = 0             # A
+COL_CHAVE_PREPARADOR = 0  # A
+COL_CHAVE_OPERADOR = 2    # C
 COL_MEDIDAS_INICIO = 6    # G
 
 # ========================= HELPERS ========================
@@ -84,23 +91,23 @@ def _extrair_medidas_da_linha(row):
         col += 2
     return medidas
 
-def _encontrar_linha(ws, part: str, op: str):
+def _encontrar_linha(ws, part: str, op: str, col_chave: int):
     """
-    Procura primeiro por igualdade EXATA na coluna A.
-    Se não encontrar, usa fallback tolerante na coluna A.
+    Procura primeiro por igualdade EXATA na coluna indicada.
+    Se não encontrar, usa fallback tolerante na mesma coluna.
     Retorna (row_values) ou None.
     """
     chave_exata = _normalize_key_strict(part, op)
 
-    # 1) Igualdade exata na coluna A
+    # 1) Igualdade exata
     for row in ws.iter_rows(values_only=True):
-        a_val = _cell_text(row, COL_CHAVE)
+        a_val = _cell_text(row, col_chave)
         if a_val == chave_exata:
             return row
 
-    # 2) Fallback tolerante (zeros à esquerda, espaços) na coluna A
+    # 2) Fallback tolerante (zeros à esquerda, espaços)
     for row in ws.iter_rows(values_only=True):
-        a_val = _cell_text(row, COL_CHAVE)
+        a_val = _cell_text(row, col_chave)
         if _keys_match_fallback(a_val, part, op):
             return row
 
@@ -109,8 +116,22 @@ def _encontrar_linha(ws, part: str, op: str):
 # ========================= ROUTES =========================
 @app.get("/health")
 def health():
-    ok = Path(PLANILHA_PATH).exists()
-    return jsonify({"ok": ok, "path": PLANILHA_PATH, "sheet": ABA})
+    ok_prep = Path(PLANILHA_PREPARADOR_PATH).exists()
+    ok_oper = Path(PLANILHA_OPERADOR_PATH).exists()
+    return jsonify(
+        {
+            "preparador": {
+                "ok": ok_prep,
+                "path": PLANILHA_PREPARADOR_PATH,
+                "sheet": ABA_PREPARADOR,
+            },
+            "operador": {
+                "ok": ok_oper,
+                "path": PLANILHA_OPERADOR_PATH,
+                "sheet": ABA_OPERADOR,
+            },
+        }
+    )
 
 @app.get("/medidas")
 def get_medidas():
@@ -125,18 +146,18 @@ def get_medidas():
         return jsonify({"error": "Parâmetros 'partnumber' e 'operacao' são obrigatórios"}), 400
 
     try:
-        p = Path(PLANILHA_PATH)
+        p = Path(PLANILHA_PREPARADOR_PATH)
         if not p.exists():
-            return jsonify({"error": f"Planilha não encontrada: {PLANILHA_PATH}"}), 500
+            return jsonify({"error": f"Planilha não encontrada: {PLANILHA_PREPARADOR_PATH}"}), 500
 
-        wb = load_workbook(PLANILHA_PATH, data_only=True, read_only=True)
-        if ABA not in wb.sheetnames:
-            return jsonify({"error": f"Aba '{ABA}' não encontrada"}), 500
-        ws = wb[ABA]
+        wb = load_workbook(PLANILHA_PREPARADOR_PATH, data_only=True, read_only=True)
+        if ABA_PREPARADOR not in wb.sheetnames:
+            return jsonify({"error": f"Aba '{ABA_PREPARADOR}' não encontrada"}), 500
+        ws = wb[ABA_PREPARADOR]
 
-        row = _encontrar_linha(ws, part, op)
+        row = _encontrar_linha(ws, part, op, COL_CHAVE_PREPARADOR)
         if row is None:
-            return jsonify([])  # não encontrou a chave na coluna A
+            return jsonify([])  # não encontrou a chave
 
         medidas = _extrair_medidas_da_linha(row)
         return jsonify(medidas)
@@ -156,6 +177,35 @@ def post_resultado():
     if faltando:
         return jsonify({"error": f"Campos obrigatórios ausentes: {faltando}"}), 400
     return jsonify({"ok": True, "received_at": datetime.utcnow().isoformat() + "Z"})
+
+# --------------------- Operador ---------------------------
+
+@app.get("/operador/medidas")
+def get_medidas_operador():
+    part = (request.args.get("partnumber") or "").strip()
+    op = (request.args.get("operacao") or "").strip()
+    if not part or not op:
+        return jsonify({"error": "Parâmetros 'partnumber' e 'operacao' são obrigatórios"}), 400
+
+    try:
+        p = Path(PLANILHA_OPERADOR_PATH)
+        if not p.exists():
+            return jsonify({"error": f"Planilha não encontrada: {PLANILHA_OPERADOR_PATH}"}), 500
+
+        wb = load_workbook(PLANILHA_OPERADOR_PATH, data_only=True, read_only=True)
+        if ABA_OPERADOR not in wb.sheetnames:
+            return jsonify({"error": f"Aba '{ABA_OPERADOR}' não encontrada"}), 500
+        ws = wb[ABA_OPERADOR]
+
+        row = _encontrar_linha(ws, part, op, COL_CHAVE_OPERADOR)
+        if row is None:
+            return jsonify([])
+
+        medidas = _extrair_medidas_da_linha(row)
+        return jsonify(medidas)
+
+    except Exception as e:
+        return jsonify({"error": f"Falha ao ler planilha: {e}"}), 500
 
 # ========================= MAIN ==========================
 if __name__ == "__main__":
