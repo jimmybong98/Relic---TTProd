@@ -1,28 +1,40 @@
-import 'dart:io';
-import 'package:flutter_dotenv/flutter_dotenv.dart';
-
+// lib/features/preparacao/data/medidas_repository_factory.dart
+import 'api_medidas_repository.dart';
 import 'local_excel_repository.dart';
 import 'medidas_repository.dart';
-import 'api_medidas_repository.dart';
-import 'fallback_medidas_repository.dart';
 
 class MedidasRepositoryFactory {
-  static MedidasRepository create() {
-    // Usa IP fixo como padrão para testes locais
-    final baseUrl =
-        dotenv.maybeGet('API_BASE_URL') ?? 'http://192.168.0.241:5005';
-    final api = ApiMedidasRepository(overrideBaseUrl: baseUrl);
-    if (Platform.isWindows) {
-      // Caminho UNC do arquivo na rede
-      // Usa duas strings raw adjacentes para evitar quebras de linha
-      const planilhaPath =
-          r'\\192.168.0.82\00. SGI - Sistema Integrado\12. Qualidade\09. Formulários\For - 007 - Registro de amostragem e '
-          r'For - 008 - Liberação de Maquina 4.xlsx';
-      final local =
-          LocalExcelRepository(planilhaPath: planilhaPath, aba: 'CADASTRO');
-      return FallbackMedidasRepository(local: local, api: api);
+  /// Cria um repositório de medidas.
+  ///
+  /// Exemplos:
+  /// - API:
+  ///   MedidasRepositoryFactory.create(useApi: true, baseUrlOverride: 'https://host')
+  ///
+  /// - Local via JSON:
+  ///   MedidasRepositoryFactory.create(useApi: false, assetPath: 'assets/medidas.json')
+  ///
+  /// - Local via planilha:
+  ///   MedidasRepositoryFactory.create(useApi: false, planilhaPath: '/path/arquivo.xlsx', aba: 'CADASTRO')
+  static MedidasRepository create({
+    required bool useApi,
+    String? baseUrlOverride,
+    String? assetPath,
+    String? planilhaPath,
+    String? aba,
+  }) {
+    if (useApi) {
+      return ApiMedidasRepository(overrideBaseUrl: baseUrlOverride);
     }
-    // Android (ou outros): usa API HTTP diretamente
-    return api;
+
+    if (planilhaPath != null) {
+      return LocalExcelRepository(planilhaPath: planilhaPath, aba: aba ?? 'CADASTRO');
+    }
+
+    if (assetPath != null) {
+      return LocalExcelRepository(assetPath: assetPath);
+    }
+
+    // Fallback seguro: tenta JSON padrão de assets.
+    return LocalExcelRepository(assetPath: 'assets/medidas.json');
   }
 }

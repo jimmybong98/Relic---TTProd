@@ -1,67 +1,103 @@
-import 'dart:io';
-import 'package:excel/excel.dart';
-import 'models.dart';
-import 'medidas_repository.dart';
+// lib/features/preparacao/data/local_excel_repository.dart
+import 'dart:convert';
+import 'package:flutter/foundation.dart';
+import 'package:flutter/services.dart' show rootBundle;
 
+import 'medidas_repository.dart';
+import 'models.dart';
+
+/// Repositório local que pode ler:
+/// - JSON embarcado via [assetPath]; OU
+/// - (placeholder) uma planilha indicada por [planilhaPath] e aba [aba].
+///
+/// OBS: A leitura de planilha é deixada como TODO (depende do package que você usa
+/// para XLS/XLSX/CSV). Por ora, retorna lista vazia para esse modo (mas compila).
 class LocalExcelRepository implements MedidasRepository {
-  final String planilhaPath;
-  final String aba;
-  const LocalExcelRepository({required this.planilhaPath, required this.aba});
+  /// Caminho do asset JSON (ex.: 'assets/medidas.json').
+  final String? assetPath;
+
+  /// Caminho da planilha local (ex.: '/storage/emulated/0/Download/medidas.xlsx').
+  final String? planilhaPath;
+
+  /// Nome da aba da planilha (ex.: 'CADASTRO').
+  final String? aba;
+
+  /// Você pode instanciar de duas formas:
+  /// - LocalExcelRepository(assetPath: 'assets/medidas.json')
+  /// - LocalExcelRepository(planilhaPath: '/caminho/arquivo.xlsx', aba: 'CADASTRO')
+  LocalExcelRepository({
+    this.assetPath,
+    this.planilhaPath,
+    this.aba,
+  }) : assert(assetPath != null || planilhaPath != null,
+  'Informe assetPath OU planilhaPath');
 
   @override
   Future<List<MedidaItem>> getMedidas({
     required String partnumber,
     required String operacao,
   }) async {
-    final key = '${partnumber.trim()}*${operacao.trim()}';
-    final bytes = await File(planilhaPath).readAsBytes();
-    final excel = Excel.decodeBytes(bytes);
-    final sheet = excel.tables[aba];
-    if (sheet == null) {
-      throw Exception('Aba "$aba" não encontrada na planilha.');
-    }
+    // Prioriza JSON embarcado se informado.
+    if (assetPath != null) {
+      final raw = await rootBundle.loadString(assetPath!);
+      final data = jsonDecode(raw);
 
-    // Procurar a linha onde a coluna C (índice 2) == key
-    for (final row in sheet.rows) {
-      final cellC = _cellText(row, 2);
-      if (cellC == key) {
-        // A partir da coluna G (índice 6), ler pares (etiqueta, especificação)
-        final medidas = <MedidaItem>[];
-        int col = 6; // G
-        while (true) {
-          final etiqueta = _cellText(row, col);
-          final especificacao = _cellText(row, col + 1);
-          final ambosVazios = (etiqueta.isEmpty && especificacao.isEmpty);
-          if (ambosVazios) break; // chegou ao fim
+      if (data is! List) return <MedidaItem>[];
 
-          if (etiqueta.isNotEmpty || especificacao.isNotEmpty) {
-            medidas.add(
-              MedidaItem(
-                titulo: etiqueta,
-                faixaTexto: especificacao,
-              ),
-            );
+      return data.map<MedidaItem>((e) {
+        final map = (e as Map).cast<String, dynamic>();
+
+        String faixaTexto = (map['faixaTexto'] ?? '').toString();
+        double? min = _toDouble(map['minimo'] ?? map['min']);
+        double? max = _toDouble(map['maximo'] ?? map['max']);
+        String? unidade = map['unidade']?.toString();
+
+        if (faixaTexto.isEmpty && (min != null || max != null)) {
+          final minStr = min?.toStringAsFixed(2) ?? '';
+          final maxStr = max?.toStringAsFixed(2) ?? '';
+          final uni = (unidade ?? '').isNotEmpty ? ' $unidade' : '';
+          if (min != null && max != null) {
+            faixaTexto = '$minStr ~ $maxStr$uni';
+          } else if (min != null) {
+            faixaTexto = '≥ $minStr$uni';
+          } else if (max != null) {
+            faixaTexto = '≤ $maxStr$uni';
           }
-          col += 2; // próximo par (I/J, K/L, ...)
         }
-        return medidas;
-      }
-    }
-    // Se não achar, retorna vazio para o app tratar
-    return <MedidaItem>[];
-  }
 
-  String _cellText(List<Data?> row, int index) {
-    if (index < 0 || index >= row.length) return '';
-    final d = row[index];
-    if (d == null) return '';
-    final v = d.value;
-    if (v == null) return '';
-    return v.toString().trim();
+        return MedidaItem(
+          titulo: (map['titulo'] ?? '').toString(),
+          faixaTexto: faixaTexto,
+          minimo: min,
+          maximo: max,
+          unidade: unidade,
+          status: statusFromString(map['status']?.toString()),
+          medicao: map['medicao']?.toString(),
+          observacao: map['observacao']?.toString(),
+        );
+      }).toList();
+    }
+
+    // TODO: Implementar leitura real de planilha (XLS/XLSX/CSV) usando o pacote escolhido.
+    // Ex.: 'excel', 'syncfusion_flutter_xlsio', 'csv', etc.
+    if (kDebugMode) {
+      // Só pra dar um toque no console durante dev.
+      print(
+          'LocalExcelRepository: leitura de planilha não implementada ainda. caminho=$planilhaPath aba=$aba');
+    }
+    return <MedidaItem>[];
   }
 
   @override
   Future<void> enviarResultado(PreparacaoResultado resultado) async {
-    // Repositório Excel é somente leitura; resultados não são persistidos localmente.
+    // Local: não envia; apenas simula sucesso.
+    await Future<void>.value();
+  }
+
+  double? _toDouble(dynamic v) {
+    if (v == null) return null;
+    if (v is num) return v.toDouble();
+    final s = v.toString().replaceAll(',', '.').trim();
+    return double.tryParse(s);
   }
 }

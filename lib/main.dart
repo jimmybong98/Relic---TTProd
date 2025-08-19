@@ -10,7 +10,7 @@ Future<void> main() async {
 
   // Carrega variáveis de ambiente do arquivo .env, ignorando se ausente
   try {
-    await dotenv.load();
+    await dotenv.load(fileName: ".env");
   } catch (_) {
     // Se não houver arquivo .env, inicializa com mapa vazio para evitar
     // NotInitializedError ao acessar [dotenv].
