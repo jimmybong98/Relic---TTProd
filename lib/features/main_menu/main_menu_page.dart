@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import '../preparacao/presentation/widgets/preparacao_page.dart';
+import '../preparacao/presentation/preparacao_page.dart';
 import '../operador/presentation/operador_page.dart';
 
 class MainMenuPage extends StatelessWidget {

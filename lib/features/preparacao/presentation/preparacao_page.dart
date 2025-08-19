@@ -3,8 +3,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 // IMPORTS ALINHADOS COM A ESTRUTURA QUE TE PASSEI
-import '../../data/models.dart';
-import '../../data/repository_provider.dart';
+import '../data/models.dart';
+import '../data/repository_provider.dart';
 
 /// Provider do controller (Riverpod)
 final medidasControllerProvider = StateNotifierProvider.autoDispose<
