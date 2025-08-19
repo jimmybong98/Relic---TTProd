@@ -240,6 +240,13 @@ def medidas_preparador():
         return jsonify({"error": f"Falha ao ler planilha do PREPARADOR: {e}"}), 500
 
 
+@app.route("/preparador/resultado", methods=["POST"])
+def resultado_preparador():
+    data = request.get_json(silent=True) or {}
+    print(f"[DEBUG] /preparador/resultado recebido: {data}", flush=True)
+    return jsonify({"status": "ok"})
+
+
 @app.route("/operador/medidas")
 def medidas_operador():
     part = _norm(request.args.get("partnumber"))
