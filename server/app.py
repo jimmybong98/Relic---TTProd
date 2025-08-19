@@ -196,10 +196,10 @@ def _buscar_multiplas_medidas(
         linhas = _encontrar_linhas(ws, part, op, col_chave)
         if not linhas:
             return []
-        resultados = []
+        medidas = []
         for row_vals in linhas:
-            resultados.append(extrator(row_vals))
-        return resultados
+            medidas.extend(extrator(row_vals))
+        return medidas
     finally:
         try:
             if wb:
