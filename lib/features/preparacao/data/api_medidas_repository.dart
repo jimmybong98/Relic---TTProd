@@ -50,34 +50,3 @@ class ApiMedidasRepository implements MedidasRepository {
     if (data is List) {
       return data.map<MedidaItem>((e) => MedidaItem.fromMap(e)).toList();
     }
-
-    // Também aceitamos um envelope {items:[...]}
-    if (data is Map && data['items'] is List) {
-      return (data['items'] as List)
-          .map<MedidaItem>((e) => MedidaItem.fromMap(e))
-          .toList();
-    }
-
-    throw Exception('Formato de resposta inválido do endpoint /medidas');
-  }
-
-  @override
-  Future<void> enviarResultado(PreparacaoResultado resultado) async {
-    // Endpoint esperado:
-    // POST /medidas/resultado  body: { re, partnumber, operacao, timestamp, itens:[...] }
-    final uri = _u('/medidas/resultado');
-
-    final resp = await _client
-        .post(
-      uri,
-      headers: {'Content-Type': 'application/json'},
-      body: resultado.toJson(),
-    )
-        .timeout(const Duration(seconds: 15));
-
-    if (resp.statusCode < 200 || resp.statusCode >= 300) {
-      throw Exception(
-          'Falha ao enviar resultado (${resp.statusCode}): ${resp.body}');
-    }
-  }
-}

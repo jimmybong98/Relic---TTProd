@@ -46,6 +46,3 @@ class MeasurementTile extends StatelessWidget {
           ],
         ),
       ),
-    );
-  }
-}

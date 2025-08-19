@@ -64,3 +64,4 @@ class LocalExcelRepository implements MedidasRepository {
   Future<void> enviarResultado(PreparacaoResultado resultado) async {
     // Repositório Excel é somente leitura; resultados não são persistidos localmente.
   }
+}
