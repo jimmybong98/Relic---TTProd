@@ -40,3 +40,4 @@ class FallbackMedidasRepository implements MedidasRepository {
     // Envios sempre feitos via API
     return api.enviarResultado(resultado);
   }
+}
