@@ -6,6 +6,7 @@ import re
 from flask_cors import CORS
 
 app = Flask(__name__)
+app.url_map.strict_slashes = False  # aceita URLs com ou sem barra final
 CORS(app)
 
 # ========================= CONFIG =========================
@@ -28,7 +29,8 @@ def _norm(text):
     return (str(text or "")).strip()
 
 def _only_digits(text):
-    return re.sub(r"\D+", "", str(text or ""))
+    s = re.sub(r"\D+", "", str(text or ""))
+    return str(int(s)) if s else ""
 
 def _keys_match(cell_value: str, part: str, op: str) -> bool:
     s = _norm(cell_value)
@@ -87,6 +89,17 @@ def _encontrar_linha(ws, part: str, op: str):
 
 def _cell_text(row_vals, col_idx):
     return (str(row_vals[col_idx]) if col_idx < len(row_vals) and row_vals[col_idx] is not None else "").strip()
+
+
+def _get_arg(*names):
+    """Retorna o primeiro parâmetro presente na query string, normalizado.
+
+    Permite utilizar diferentes variações de nomes (ex.: partnumber vs partNumber).
+    """
+    for name in names:
+        if name in request.args:
+            return _norm(request.args[name])
+    return ""
 
 # ----------------- Extratores ------------------
 def _extrair_medidas_pares(row_vals):
@@ -147,8 +160,8 @@ def health():
 
 @app.get("/medidas")
 def get_medidas_preparador():
-    part = _norm(request.args.get("partnumber"))
-    op = _norm(request.args.get("operacao"))
+    part = _get_arg("partnumber", "partNumber")
+    op = _get_arg("operacao", "operation")
     if not part or not op:
         return jsonify({"error": "Parâmetros 'partnumber' e 'operacao' são obrigatórios"}), 400
     try:
@@ -165,8 +178,8 @@ def get_medidas_preparador():
 
 @app.get("/operador/medidas")
 def get_medidas_operador():
-    part = _norm(request.args.get("partnumber"))
-    op = _norm(request.args.get("operacao"))
+    part = _get_arg("partnumber", "partNumber")
+    op = _get_arg("operacao", "operation")
     if not part or not op:
         return jsonify({"error": "Parâmetros 'partnumber' e 'operacao' são obrigatórios"}), 400
     try:
