@@ -28,4 +28,4 @@ Future<void> main() async {
 
   // Sobe o app (MaterialApp está em lib/app.dart)
   runApp(const ProviderScope(child: App()));
-
+}
