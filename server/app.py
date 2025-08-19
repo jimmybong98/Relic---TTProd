@@ -1,29 +1,25 @@
-# server/app.py
 from flask import Flask, request, jsonify
 from openpyxl import load_workbook
-from pathlib import Path
 import re
-from flask_cors import CORS
+import time
 
 app = Flask(__name__)
-CORS(app)
 
-# ========================= CONFIG =========================
+# ======== CONFIG ========
 PLANILHA_PREPARADOR_PATH = (
     r"\\192.168.0.82\00. SGI - Sistema Integrado\12. Qualidade\09. Formulários\For - 007 - Registro de amostragem e For - 008 - Liberação de Maquina 4.xlsx"
 )
 PLANILHA_OPERADOR_PATH = (
     r"\\192.168.0.82\00. SGI - Sistema Integrado\12. Qualidade\09. Formulários\For - 09 a 14 - Verificação durante o Processo 2.xlsx"
 )
-
 ABA_PREPARADOR = "CADASTRO"
 ABA_OPERADOR = "CADASTRO"
 
-COL_MEDIDAS_INICIO = 6  # G=6, H=7, I=8, J=9...
+COL_MEDIDAS_INICIO = 6
 COL_CHAVE_COMBINADA = 0
-COLS_CHAVE_SEPARADAS = None  # ex.: (0,1) se tiver colunas separadas
+COLS_CHAVE_SEPARADAS = None  # sempre part*op
 
-# ========================= HELPERS =========================
+# ======== HELPERS ========
 def _norm(text):
     return (str(text or "")).strip()
 
@@ -89,7 +85,6 @@ def _encontrar_linha(ws, part: str, op: str):
 def _cell_text(row_vals, col_idx):
     return (str(row_vals[col_idx]) if col_idx < len(row_vals) and row_vals[col_idx] is not None else "").strip()
 
-# ----------------- Extratores ------------------
 def _extrair_medidas_pares(row_vals):
     medidas = []
     col = COL_MEDIDAS_INICIO
@@ -132,73 +127,48 @@ def _extrair_medidas_quartetos(row_vals):
         col += 4
     return medidas
 
-# ========================= ROTAS ==========================
-@app.get("/")
-def index():
-    return jsonify({"ok": True, "service": "medidas-api"})
+def _buscar_medidas(path: str, aba: str, part: str, op: str, extrator):
+    wb = None
+    try:
+        wb = load_workbook(path, data_only=True, read_only=True)
+        if aba not in wb.sheetnames:
+            raise RuntimeError(f"Aba '{aba}' não encontrada")
+        ws = wb[aba]
+        row_vals = _encontrar_linha(ws, part, op)
+        if row_vals is None:
+            return []
+        return extrator(row_vals)
+    finally:
+        try:
+            if wb:
+                wb.close()
+        except Exception:
+            pass
 
-@app.get("/health")
-def health():
-    return jsonify({
-        "preparador_path": PLANILHA_PREPARADOR_PATH,
-        "operador_path": PLANILHA_OPERADOR_PATH,
-        "aba_preparador": ABA_PREPARADOR,
-        "aba_operador": ABA_OPERADOR
-    })
-
-@app.get("/medidas")
-def get_medidas_preparador():
+# ======== ROUTES ========
+@app.route("/preparador/medidas")
+def medidas_preparador():
     part = _norm(request.args.get("partnumber"))
     op = _norm(request.args.get("operacao"))
     if not part or not op:
         return jsonify({"error": "Parâmetros 'partnumber' e 'operacao' são obrigatórios"}), 400
     try:
-        wb = load_workbook(PLANILHA_PREPARADOR_PATH, data_only=True, read_only=True)
-        if ABA_PREPARADOR not in wb.sheetnames:
-            return jsonify({"error": f"Aba '{ABA_PREPARADOR}' não encontrada"}), 500
-        ws = wb[ABA_PREPARADOR]
-        row_vals = _encontrar_linha(ws, part, op)
-        if row_vals is None:
-            return jsonify([])
-        return jsonify(_extrair_medidas_pares(row_vals))
+        data = _buscar_medidas(PLANILHA_PREPARADOR_PATH, ABA_PREPARADOR, part, op, _extrair_medidas_pares)
+        return jsonify(data)
     except Exception as e:
         return jsonify({"error": f"Falha ao ler planilha do PREPARADOR: {e}"}), 500
 
-@app.get("/operador/medidas")
-def get_medidas_operador():
+@app.route("/operador/medidas")
+def medidas_operador():
     part = _norm(request.args.get("partnumber"))
     op = _norm(request.args.get("operacao"))
     if not part or not op:
         return jsonify({"error": "Parâmetros 'partnumber' e 'operacao' são obrigatórios"}), 400
     try:
-        wb = load_workbook(PLANILHA_OPERADOR_PATH, data_only=True, read_only=True)
-        if ABA_OPERADOR not in wb.sheetnames:
-            return jsonify({"error": f"Aba '{ABA_OPERADOR}' não encontrada"}), 500
-        ws = wb[ABA_OPERADOR]
-        row_vals = _encontrar_linha(ws, part, op)
-        if row_vals is None:
-            return jsonify([])
-        return jsonify(_extrair_medidas_quartetos(row_vals))
+        data = _buscar_medidas(PLANILHA_OPERADOR_PATH, ABA_OPERADOR, part, op, _extrair_medidas_quartetos)
+        return jsonify(data)
     except Exception as e:
         return jsonify({"error": f"Falha ao ler planilha do OPERADOR: {e}"}), 500
 
-
-@app.post("/resultado")
-def post_resultado_preparador():
-    """Recebe o resultado de medições do preparador.
-
-    Neste protótipo os dados são apenas retornados como confirmação.
-    """
-    data = request.get_json(silent=True) or {}
-    return jsonify({"status": "ok", "received": data})
-
-
-@app.post("/operador/resultado")
-def post_resultado_operador():
-    """Recebe o resultado de medições do operador."""
-    data = request.get_json(silent=True) or {}
-    return jsonify({"status": "ok", "received": data})
-
-# ========================= MAIN ==========================
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5005, debug=False, threaded=True)
