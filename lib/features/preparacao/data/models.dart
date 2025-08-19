@@ -44,6 +44,8 @@ class MedidaItem {
   final StatusMedida status;
   final String? medicao;
   final String? observacao;
+  final String? periodicidade;
+  final String? instrumento;
 
   MedidaItem({
     required this.titulo,
@@ -54,6 +56,8 @@ class MedidaItem {
     this.status = StatusMedida.pendente,
     this.medicao,
     this.observacao,
+    this.periodicidade,
+    this.instrumento,
   });
 
   factory MedidaItem.fromMap(Map<String, dynamic> map) {
@@ -73,6 +77,8 @@ class MedidaItem {
       status: statusFromString(map['status']?.toString()),
       medicao: map['medicao']?.toString(),
       observacao: map['observacao']?.toString(),
+      periodicidade: map['periodicidade']?.toString(),
+      instrumento: map['instrumento']?.toString(),
     );
   }
 
@@ -85,6 +91,8 @@ class MedidaItem {
     'status': statusToString(status),
     'medicao': medicao,
     'observacao': observacao,
+    'periodicidade': periodicidade,
+    'instrumento': instrumento,
   };
 }
 

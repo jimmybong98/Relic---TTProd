@@ -41,7 +41,10 @@ class MedidasOperadorController
       maximo: current[index].maximo,
       unidade: current[index].unidade,
       status: status,
+      medicao: current[index].medicao,
       observacao: current[index].observacao,
+      periodicidade: current[index].periodicidade,
+      instrumento: current[index].instrumento,
     );
     state = AsyncValue.data(current);
   }
@@ -243,6 +246,14 @@ class _MeasurementTile extends StatelessWidget {
             const SizedBox(height: 4),
             Text(subtitulo.isEmpty ? '(sem faixa)' : subtitulo,
                 style: styleSpec),
+            if ((item.periodicidade ?? '').isNotEmpty) ...[
+              const SizedBox(height: 4),
+              Text('Periodicidade: ${item.periodicidade}', style: styleSpec),
+            ],
+            if ((item.instrumento ?? '').isNotEmpty) ...[
+              const SizedBox(height: 2),
+              Text('Instrumento: ${item.instrumento}', style: styleSpec),
+            ],
             const SizedBox(height: 8),
             Wrap(
               spacing: 8,

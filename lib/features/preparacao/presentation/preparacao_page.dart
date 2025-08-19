@@ -41,7 +41,10 @@ class MedidasController extends StateNotifier<AsyncValue<List<MedidaItem>>> {
       maximo: current[index].maximo,
       unidade: current[index].unidade,
       status: status,
+      medicao: current[index].medicao,
       observacao: current[index].observacao,
+      periodicidade: current[index].periodicidade,
+      instrumento: current[index].instrumento,
     );
     state = AsyncValue.data(current);
   }
