@@ -95,8 +95,8 @@ def _extrair_medidas_pares(row_vals):
             break
         mn, mx, uni = _parse_range(faixa)
         medidas.append({
-            "etiqueta": etiqueta or "",
-            "faixa": faixa or "",
+            "titulo": etiqueta or "",
+            "faixaTexto": faixa or "",
             "min": mn,
             "max": mx,
             "unidade": uni,
@@ -116,8 +116,8 @@ def _extrair_medidas_quartetos(row_vals):
             break
         mn, mx, uni = _parse_range(faixa)
         medidas.append({
-            "tipo": tipo or "",
-            "faixa": faixa or "",
+            "titulo": tipo or "",
+            "faixaTexto": faixa or "",
             "min": mn,
             "max": mx,
             "unidade": uni,
