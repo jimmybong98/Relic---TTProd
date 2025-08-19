@@ -28,7 +28,8 @@ def _norm(text):
     return (str(text or "")).strip()
 
 def _only_digits(text):
-    return re.sub(r"\D+", "", str(text or ""))
+    s = re.sub(r"\D+", "", str(text or ""))
+    return str(int(s)) if s else ""
 
 def _keys_match(cell_value: str, part: str, op: str) -> bool:
     s = _norm(cell_value)
