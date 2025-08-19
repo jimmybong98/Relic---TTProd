@@ -2,88 +2,107 @@
 from flask import Flask, request, jsonify
 from openpyxl import load_workbook
 from pathlib import Path
-from datetime import datetime
 import re
 
+# Se precisar de CORS, descomenta as 2 linhas abaixo:
+# from flask_cors import CORS
+
 app = Flask(__name__)
+# CORS(app)
 
 # ========================= CONFIG =========================
 PLANILHA_PREPARADOR_PATH = (
-    r"\\\\192.168.0.82\\00. SGI - Sistema Integrado\\12. Qualidade\\09. Formulários\\For - 007 - Registro de amostragem e For - 008 - Liberação de Maquina 4.xlsx"
+    r"\\192.168.0.82\00. SGI - Sistema Integrado\12. Qualidade\09. Formulários\For - 007 - Registro de amostragem e For - 008 - Liberação de Maquina 4.xlsx"
 )
 PLANILHA_OPERADOR_PATH = (
-    r"\\\\192.168.0.82\\00. SGI - Sistema Integrado\\12. Qualidade\\09. Formulários\\For - 09 a 14 - Verificação durante o Processo.xlsx"
+    r"\\192.168.0.82\00. SGI - Sistema Integrado\12. Qualidade\09. Formulários\For - 09 a 14 - Verificação durante o Processo 2.xlsx"
 )
+
 ABA_PREPARADOR = "CADASTRO"
 ABA_OPERADOR = "CADASTRO"
 
-# Índices 0-based
-COL_CHAVE_PREPARADOR = 0  # A
-COL_CHAVE_OPERADOR = 2    # C
-COL_MEDIDAS_INICIO = 6    # G
+COL_MEDIDAS_INICIO = 6  # G=6, H=7, I=8, J=9...
+COL_CHAVE_COMBINADA = 0
+COLS_CHAVE_SEPARADAS = None  # ex.: (0,1) se tiver colunas separadas
 
-# ========================= HELPERS ========================
-_NON_DIGITS = re.compile(r'\D+')
-_RANGE_RE = re.compile(r"""
-    ^\s*
-    (?P<min>[-+]?\d+(?:[.,]\d+)?)
-    \s*[-–]\s*
-    (?P<max>[-+]?\d+(?:[.,]\d+)?)
-    (?:\s*(?P<uni>mm|cm|in|º|°|[a-zA-Z%]+))?
-    \s*$
-""", re.X)
+# ========================= HELPERS =========================
+def _norm(text):
+    return (str(text or "")).strip()
 
-def _cell_text(row, idx0: int) -> str:
-    if idx0 < 0 or idx0 >= len(row):
-        return ""
-    v = row[idx0]
-    return "" if v is None else str(v).strip()
+def _only_digits(text):
+    return re.sub(r"\D+", "", str(text or ""))
 
-def _normalize_key_strict(part: str, op: str) -> str:
-    # igualdade exata: "000000000373*010"
-    return f"{part}*{op}"
-
-def _only_digits(s: str) -> str:
-    return _NON_DIGITS.sub('', s or '')
-
-def _norm_int(s: str) -> int:
-    ds = _only_digits(s)
-    return int(ds) if ds else -1
-
-def _keys_match_fallback(cell_value: str, part: str, op: str) -> bool:
-    """
-    Fallback tolerante: ignora zeros à esquerda e espaços.
-    Casa se dígitos(part) == dígitos(PN da célula) e dígitos(op) == dígitos(OP da célula).
-    """
-    s = (cell_value or "").strip()
-    if not s or "*" not in s:
+def _keys_match(cell_value: str, part: str, op: str) -> bool:
+    s = _norm(cell_value)
+    if "*" not in s:
         return False
     left, right = s.split("*", 1)
-    return _norm_int(left) == _norm_int(part) and _norm_int(right) == _norm_int(op)
+    return _only_digits(left) == _only_digits(part) and _only_digits(right) == _only_digits(op)
 
 def _parse_range(texto: str):
     if not texto:
         return (None, None, None)
-    m = _RANGE_RE.match(str(texto))
+    s = str(texto)
+    m = re.search(
+        r"(-?\d+[.,]?\d*)\s*(?:-|–|a|até)\s*(-?\d+[.,]?\d*)\s*([^\d\s]+.*)?$",
+        s, flags=re.IGNORECASE
+    )
     if not m:
+        m1 = re.search(r"(-?\d+[.,]?\d*)\s*([^\d\s]+.*)?$", s)
+        if m1:
+            v = _to_float(m1.group(1))
+            uni = (m1.group(2) or "").strip() or None
+            return (v, v, uni)
         return (None, None, None)
-    def to_float(x):
-        return float(str(x).replace(',', '.')) if x else None
-    return (to_float(m.group('min')), to_float(m.group('max')), m.group('uni'))
+    v1 = _to_float(m.group(1))
+    v2 = _to_float(m.group(2))
+    uni = (m.group(3) or "").strip() or None
+    if v1 is not None and v2 is not None and v1 > v2:
+        v1, v2 = v2, v1
+    return (v1, v2, uni)
 
-def _extrair_medidas_da_linha(row):
+def _to_float(s):
+    try:
+        return float(str(s).replace(",", ".").strip())
+    except Exception:
+        return None
+
+def _row_values(ws, row_idx):
+    return [c.value for c in ws[row_idx]]
+
+def _encontrar_linha(ws, part: str, op: str):
+    part_d = _only_digits(part)
+    op_d = _only_digits(op)
+    for r in range(1, ws.max_row + 1):
+        vals = _row_values(ws, r)
+        if COLS_CHAVE_SEPARADAS:
+            i_part, i_op = COLS_CHAVE_SEPARADAS
+            vpart = _only_digits(vals[i_part] if i_part < len(vals) else "")
+            vop = _only_digits(vals[i_op] if i_op < len(vals) else "")
+            if vpart == part_d and vop == op_d:
+                return vals
+        else:
+            cel = vals[COL_CHAVE_COMBINADA] if COL_CHAVE_COMBINADA < len(vals) else ""
+            if _keys_match(cel, part, op):
+                return vals
+    return None
+
+def _cell_text(row_vals, col_idx):
+    return (str(row_vals[col_idx]) if col_idx < len(row_vals) and row_vals[col_idx] is not None else "").strip()
+
+# ----------------- Extratores ------------------
+def _extrair_medidas_pares(row_vals):
     medidas = []
-    col = COL_MEDIDAS_INICIO  # G
+    col = COL_MEDIDAS_INICIO
     while True:
-        etiqueta = _cell_text(row, col)
-        especific = _cell_text(row, col + 1)
-        if not etiqueta and not especific:
+        etiqueta = _cell_text(row_vals, col)
+        faixa = _cell_text(row_vals, col + 1)
+        if not (etiqueta or faixa):
             break
-        # Apenas exibição (escopo atual). min/max/unidade opcionais.
-        mn, mx, uni = _parse_range(especific)
+        mn, mx, uni = _parse_range(faixa)
         medidas.append({
-            "titulo": etiqueta or "",
-            "faixa": especific or "",
+            "etiqueta": etiqueta or "",
+            "faixa": faixa or "",
             "min": mn,
             "max": mx,
             "unidade": uni,
@@ -91,123 +110,79 @@ def _extrair_medidas_da_linha(row):
         col += 2
     return medidas
 
-def _encontrar_linha(ws, part: str, op: str, col_chave: int):
-    """
-    Procura primeiro por igualdade EXATA na coluna indicada.
-    Se não encontrar, usa fallback tolerante na mesma coluna.
-    Retorna (row_values) ou None.
-    """
-    chave_exata = _normalize_key_strict(part, op)
+def _extrair_medidas_quartetos(row_vals):
+    medidas = []
+    col = COL_MEDIDAS_INICIO
+    while True:
+        tipo = _cell_text(row_vals, col)
+        faixa = _cell_text(row_vals, col + 1)
+        periodic = _cell_text(row_vals, col + 2)
+        instrumento = _cell_text(row_vals, col + 3)
+        if not (tipo or faixa or periodic or instrumento):
+            break
+        mn, mx, uni = _parse_range(faixa)
+        medidas.append({
+            "tipo": tipo or "",
+            "faixa": faixa or "",
+            "min": mn,
+            "max": mx,
+            "unidade": uni,
+            "periodicidade": periodic or "",
+            "instrumento": instrumento or "",
+        })
+        col += 4
+    return medidas
 
-    # 1) Igualdade exata
-    for row in ws.iter_rows(values_only=True):
-        a_val = _cell_text(row, col_chave)
-        if a_val == chave_exata:
-            return row
+# ========================= ROTAS ==========================
+@app.get("/")
+def index():
+    return jsonify({"ok": True, "service": "medidas-api"})
 
-    # 2) Fallback tolerante (zeros à esquerda, espaços)
-    for row in ws.iter_rows(values_only=True):
-        a_val = _cell_text(row, col_chave)
-        if _keys_match_fallback(a_val, part, op):
-            return row
-
-    return None
-
-# ========================= ROUTES =========================
 @app.get("/health")
 def health():
-    ok_prep = Path(PLANILHA_PREPARADOR_PATH).exists()
-    ok_oper = Path(PLANILHA_OPERADOR_PATH).exists()
-    return jsonify(
-        {
-            "preparador": {
-                "ok": ok_prep,
-                "path": PLANILHA_PREPARADOR_PATH,
-                "sheet": ABA_PREPARADOR,
-            },
-            "operador": {
-                "ok": ok_oper,
-                "path": PLANILHA_OPERADOR_PATH,
-                "sheet": ABA_OPERADOR,
-            },
-        }
-    )
+    return jsonify({
+        "preparador_path": PLANILHA_PREPARADOR_PATH,
+        "operador_path": PLANILHA_OPERADOR_PATH,
+        "aba_preparador": ABA_PREPARADOR,
+        "aba_operador": ABA_OPERADOR
+    })
 
 @app.get("/medidas")
-def get_medidas():
-    """
-    GET /medidas?partnumber=000000000373&operacao=010
-    Retorna: [{"titulo":"DIAMETRO","faixa":"4.05-4.20", "min":4.05, "max":4.20, "unidade":"mm"}, ...]
-    (min/max/unidade podem ser None se a faixa não tiver padrão numérico)
-    """
-    part = (request.args.get("partnumber") or "").strip()
-    op = (request.args.get("operacao") or "").strip()
+def get_medidas_preparador():
+    part = _norm(request.args.get("partnumber"))
+    op = _norm(request.args.get("operacao"))
     if not part or not op:
         return jsonify({"error": "Parâmetros 'partnumber' e 'operacao' são obrigatórios"}), 400
-
     try:
-        p = Path(PLANILHA_PREPARADOR_PATH)
-        if not p.exists():
-            return jsonify({"error": f"Planilha não encontrada: {PLANILHA_PREPARADOR_PATH}"}), 500
-
         wb = load_workbook(PLANILHA_PREPARADOR_PATH, data_only=True, read_only=True)
         if ABA_PREPARADOR not in wb.sheetnames:
             return jsonify({"error": f"Aba '{ABA_PREPARADOR}' não encontrada"}), 500
         ws = wb[ABA_PREPARADOR]
-
-        row = _encontrar_linha(ws, part, op, COL_CHAVE_PREPARADOR)
-        if row is None:
-            return jsonify([])  # não encontrou a chave
-
-        medidas = _extrair_medidas_da_linha(row)
-        return jsonify(medidas)
-
+        row_vals = _encontrar_linha(ws, part, op)
+        if row_vals is None:
+            return jsonify([])
+        return jsonify(_extrair_medidas_pares(row_vals))
     except Exception as e:
-        return jsonify({"error": f"Falha ao ler planilha: {e}"}), 500
-
-@app.post("/medidas/resultado")
-def post_resultado():
-    """
-    Persistência fica para a próxima etapa.
-    Apenas confirma recebimento do payload.
-    """
-    data = request.get_json(silent=True) or {}
-    obrig = ["re", "partnumber", "operacao", "itens"]
-    faltando = [k for k in obrig if k not in data]
-    if faltando:
-        return jsonify({"error": f"Campos obrigatórios ausentes: {faltando}"}), 400
-    return jsonify({"ok": True, "received_at": datetime.utcnow().isoformat() + "Z"})
-
-# --------------------- Operador ---------------------------
+        return jsonify({"error": f"Falha ao ler planilha do PREPARADOR: {e}"}), 500
 
 @app.get("/operador/medidas")
 def get_medidas_operador():
-    part = (request.args.get("partnumber") or "").strip()
-    op = (request.args.get("operacao") or "").strip()
+    part = _norm(request.args.get("partnumber"))
+    op = _norm(request.args.get("operacao"))
     if not part or not op:
         return jsonify({"error": "Parâmetros 'partnumber' e 'operacao' são obrigatórios"}), 400
-
     try:
-        p = Path(PLANILHA_OPERADOR_PATH)
-        if not p.exists():
-            return jsonify({"error": f"Planilha não encontrada: {PLANILHA_OPERADOR_PATH}"}), 500
-
         wb = load_workbook(PLANILHA_OPERADOR_PATH, data_only=True, read_only=True)
         if ABA_OPERADOR not in wb.sheetnames:
             return jsonify({"error": f"Aba '{ABA_OPERADOR}' não encontrada"}), 500
         ws = wb[ABA_OPERADOR]
-
-        row = _encontrar_linha(ws, part, op, COL_CHAVE_OPERADOR)
-        if row is None:
+        row_vals = _encontrar_linha(ws, part, op)
+        if row_vals is None:
             return jsonify([])
-
-        medidas = _extrair_medidas_da_linha(row)
-        return jsonify(medidas)
-
+        return jsonify(_extrair_medidas_quartetos(row_vals))
     except Exception as e:
-        return jsonify({"error": f"Falha ao ler planilha: {e}"}), 500
+        return jsonify({"error": f"Falha ao ler planilha do OPERADOR: {e}"}), 500
 
 # ========================= MAIN ==========================
 if __name__ == "__main__":
-    # Ex.: http://localhost:5005/medidas?partnumber=000000000373&operacao=010
-    app.run(host="0.0.0.0", port=5005, debug=False)
+    app.run(host="0.0.0.0", port=5005, debug=False, threaded=True)

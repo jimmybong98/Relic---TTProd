@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
-import 'package:relic_ttprod/features/preparacao/presentation/preparacao_page.dart';
-import 'package:relic_ttprod/features/operador/presentation/operador_page.dart';
+import '../preparacao/presentation/preparacao_page.dart';
+import '../operador/presentation/operador_page.dart';
 
 class MainMenuPage extends StatelessWidget {
   const MainMenuPage({super.key});
