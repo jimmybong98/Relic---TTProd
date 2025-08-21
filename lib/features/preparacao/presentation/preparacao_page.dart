@@ -311,6 +311,25 @@ class _MeasurementTile extends StatelessWidget {
               ),
               onChanged: onChanged,
             ),
+            const SizedBox(height: 8),
+            if (item.status != StatusMedida.pendente)
+              Align(
+                alignment: Alignment.centerLeft,
+                child: Chip(
+                  label: Text(
+                    item.status == StatusMedida.ok
+                        ? 'OK'
+                        : item.status == StatusMedida.reprovadaAcima
+                            ? 'Reprovada acima'
+                            : item.status == StatusMedida.reprovadaAbaixo
+                                ? 'Reprovada abaixo'
+                                : 'Alerta',
+                  ),
+                  backgroundColor: item.status == StatusMedida.ok
+                      ? Colors.green.shade100
+                      : Theme.of(context).colorScheme.errorContainer,
+                ),
+              ),
           ],
         ),
       ),
