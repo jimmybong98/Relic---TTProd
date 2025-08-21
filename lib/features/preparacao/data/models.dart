@@ -25,7 +25,6 @@ String statusToString(StatusMedida s) {
     case StatusMedida.reprovada:
       return 'reprovada';
     case StatusMedida.pendente:
-    default:
       return 'pendente';
   }
 }
@@ -61,7 +60,7 @@ class MedidaItem {
   });
 
   factory MedidaItem.fromMap(Map<String, dynamic> map) {
-    double? _toDouble(v) {
+    double? parseToDouble(v) {
       if (v == null) return null;
       if (v is num) return v.toDouble();
       final s = v.toString().replaceAll(',', '.').trim();
@@ -71,8 +70,8 @@ class MedidaItem {
     return MedidaItem(
       titulo: (map['titulo'] ?? '').toString(),
       faixaTexto: (map['faixaTexto'] ?? map['faixa_texto'] ?? '').toString(),
-      minimo: _toDouble(map['minimo'] ?? map['min']),
-      maximo: _toDouble(map['maximo'] ?? map['max']),
+      minimo: parseToDouble(map['minimo'] ?? map['min']),
+      maximo: parseToDouble(map['maximo'] ?? map['max']),
       unidade: map['unidade']?.toString(),
       status: statusFromString(map['status']?.toString()),
       medicao: map['medicao']?.toString(),
