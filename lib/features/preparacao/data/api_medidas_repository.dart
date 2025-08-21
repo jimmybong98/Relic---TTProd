@@ -38,7 +38,7 @@ class ApiMedidasRepository implements MedidasRepository {
       port: root.hasPort ? root.port : null,
       path: normalizedPath, // <- nunca prefixa com caminho do baseUrl
       queryParameters:
-      query?.map((k, v) => MapEntry(k, v == null ? null : v.toString())),
+      query?.map((k, v) => MapEntry(k, v?.toString())),
     );
   }
 

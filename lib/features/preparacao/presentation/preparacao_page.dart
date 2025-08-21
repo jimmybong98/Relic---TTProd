@@ -47,9 +47,10 @@ class MedidasController extends StateNotifier<AsyncValue<List<MedidaItem>>> {
     if (valor != null) {
       final minimo = item.minimo;
       final maximo = item.maximo;
-      if ((minimo != null && valor < minimo) ||
-          (maximo != null && valor > maximo)) {
-        status = StatusMedida.reprovada;
+      if (minimo != null && valor < minimo) {
+        status = StatusMedida.reprovadaAbaixo;
+      } else if (maximo != null && valor > maximo) {
+        status = StatusMedida.reprovadaAcima;
       } else {
         status = StatusMedida.ok;
       }
@@ -303,12 +304,32 @@ class _MeasurementTile extends StatelessWidget {
                 filled: true,
                 fillColor: item.status == StatusMedida.ok
                     ? Colors.green.shade100
-                    : item.status == StatusMedida.reprovada
+                    : (item.status == StatusMedida.reprovadaAbaixo ||
+                            item.status == StatusMedida.reprovadaAcima)
                         ? Theme.of(context).colorScheme.errorContainer
                         : null,
               ),
               onChanged: onChanged,
             ),
+            const SizedBox(height: 8),
+            if (item.status != StatusMedida.pendente)
+              Align(
+                alignment: Alignment.centerLeft,
+                child: Chip(
+                  label: Text(
+                    item.status == StatusMedida.ok
+                        ? 'OK'
+                        : item.status == StatusMedida.reprovadaAcima
+                            ? 'Reprovada acima'
+                            : item.status == StatusMedida.reprovadaAbaixo
+                                ? 'Reprovada abaixo'
+                                : 'Alerta',
+                  ),
+                  backgroundColor: item.status == StatusMedida.ok
+                      ? Colors.green.shade100
+                      : Theme.of(context).colorScheme.errorContainer,
+                ),
+              ),
           ],
         ),
       ),
