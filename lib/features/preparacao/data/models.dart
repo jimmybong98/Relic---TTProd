@@ -88,19 +88,18 @@ class MedidaItem {
       maximo ??= matches.length > 1 ? matches[1] : null;
     }
 
-    return MedidaItem(
-      titulo: (map['titulo'] ?? '').toString(),
-      faixaTexto: faixa,
-      minimo: minimo,
-      maximo: maximo,
-      unidade: map['unidade']?.toString(),
-      status: statusFromString(map['status']?.toString()),
-      medicao: map['medicao']?.toString(),
-      observacao: map['observacao']?.toString(),
-      periodicidade: map['periodicidade']?.toString(),
-      instrumento: map['instrumento']?.toString(),
-    );
-  }
+return MedidaItem(
+  titulo: (map['titulo'] ?? '').toString(),
+  faixaTexto: (map['faixaTexto'] ?? map['faixa_texto'] ?? '').toString(),
+  minimo: parseToDouble(map['minimo'] ?? map['min']),
+  maximo: parseToDouble(map['maximo'] ?? map['max']),
+  unidade: map['unidade']?.toString(),
+  status: statusFromString(map['status']?.toString()),
+  medicao: map['medicao']?.toString(),
+  observacao: map['observacao']?.toString(),
+  periodicidade: map['periodicidade']?.toString(),
+  instrumento: map['instrumento']?.toString(),
+);
 
   Map<String, dynamic> toMap() => {
     'titulo': titulo,
