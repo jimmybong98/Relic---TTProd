@@ -1,7 +1,7 @@
 // lib/features/preparacao/data/models.dart
 import 'dart:convert';
 
-enum StatusMedida { ok, alerta, reprovada, pendente }
+enum StatusMedida { ok, alerta, reprovadaAcima, reprovadaAbaixo, pendente }
 
 StatusMedida statusFromString(String? s) {
   switch (s?.toLowerCase()) {
@@ -9,8 +9,13 @@ StatusMedida statusFromString(String? s) {
       return StatusMedida.ok;
     case 'alerta':
       return StatusMedida.alerta;
+    case 'reprovada_acima':
+    case 'acima':
     case 'reprovada':
-      return StatusMedida.reprovada;
+      return StatusMedida.reprovadaAcima;
+    case 'reprovada_abaixo':
+    case 'abaixo':
+      return StatusMedida.reprovadaAbaixo;
     default:
       return StatusMedida.pendente;
   }
@@ -22,8 +27,10 @@ String statusToString(StatusMedida s) {
       return 'ok';
     case StatusMedida.alerta:
       return 'alerta';
-    case StatusMedida.reprovada:
-      return 'reprovada';
+    case StatusMedida.reprovadaAcima:
+      return 'reprovada_acima';
+    case StatusMedida.reprovadaAbaixo:
+      return 'reprovada_abaixo';
     case StatusMedida.pendente:
       return 'pendente';
   }
