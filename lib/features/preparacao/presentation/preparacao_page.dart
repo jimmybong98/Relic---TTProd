@@ -38,7 +38,7 @@ class MedidasController extends StateNotifier<AsyncValue<List<MedidaItem>>> {
     final item = current[index];
     double? valor;
     try {
-      valor = double.parse(medicao.replaceAll(',', '.'));
+      valor = double.parse(medicao.trim().replaceAll(',', '.'));
     } catch (_) {
       valor = null;
     }

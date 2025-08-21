@@ -74,19 +74,32 @@ class MedidaItem {
       return double.tryParse(s);
     }
 
-    return MedidaItem(
-      titulo: (map['titulo'] ?? '').toString(),
-      faixaTexto: (map['faixaTexto'] ?? map['faixa_texto'] ?? '').toString(),
-      minimo: parseToDouble(map['minimo'] ?? map['min']),
-      maximo: parseToDouble(map['maximo'] ?? map['max']),
-      unidade: map['unidade']?.toString(),
-      status: statusFromString(map['status']?.toString()),
-      medicao: map['medicao']?.toString(),
-      observacao: map['observacao']?.toString(),
-      periodicidade: map['periodicidade']?.toString(),
-      instrumento: map['instrumento']?.toString(),
-    );
-  }
+    final faixa = (map['faixaTexto'] ?? map['faixa_texto'] ?? '').toString();
+    double? minimo = parseToDouble(map['minimo'] ?? map['min']);
+    double? maximo = parseToDouble(map['maximo'] ?? map['max']);
+
+    if ((minimo == null || maximo == null) && faixa.isNotEmpty) {
+      final matches = RegExp(r'-?\d+(?:[.,]\d+)?')
+          .allMatches(faixa)
+          .map((m) => double.tryParse(m.group(0)!.replaceAll(',', '.')))
+          .whereType<double>()
+          .toList();
+      minimo ??= matches.isNotEmpty ? matches.first : null;
+      maximo ??= matches.length > 1 ? matches[1] : null;
+    }
+
+return MedidaItem(
+  titulo: (map['titulo'] ?? '').toString(),
+  faixaTexto: (map['faixaTexto'] ?? map['faixa_texto'] ?? '').toString(),
+  minimo: parseToDouble(map['minimo'] ?? map['min']),
+  maximo: parseToDouble(map['maximo'] ?? map['max']),
+  unidade: map['unidade']?.toString(),
+  status: statusFromString(map['status']?.toString()),
+  medicao: map['medicao']?.toString(),
+  observacao: map['observacao']?.toString(),
+  periodicidade: map['periodicidade']?.toString(),
+  instrumento: map['instrumento']?.toString(),
+);
 
   Map<String, dynamic> toMap() => {
     'titulo': titulo,
