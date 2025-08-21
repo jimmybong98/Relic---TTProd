@@ -269,9 +269,14 @@ class _MeasurementTile extends StatelessWidget {
                   onSelected: (_) => onSelect(StatusMedida.alerta),
                 ),
                 ChoiceChip(
-                  label: const Text('Reprovada'),
-                  selected: item.status == StatusMedida.reprovada,
-                  onSelected: (_) => onSelect(StatusMedida.reprovada),
+                  label: const Text('Reprovada acima'),
+                  selected: item.status == StatusMedida.reprovadaAcima,
+                  onSelected: (_) => onSelect(StatusMedida.reprovadaAcima),
+                ),
+                ChoiceChip(
+                  label: const Text('Reprovada abaixo'),
+                  selected: item.status == StatusMedida.reprovadaAbaixo,
+                  onSelected: (_) => onSelect(StatusMedida.reprovadaAbaixo),
                 ),
               ],
             ),
